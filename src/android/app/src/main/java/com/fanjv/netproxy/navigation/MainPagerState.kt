@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.Dashboard
 import androidx.compose.material.icons.rounded.Router
@@ -111,4 +112,18 @@ internal enum class AppDestination(
     Nodes(R.string.nodes, Icons.Rounded.Router),
     Subscriptions(R.string.subscriptions, Icons.Rounded.CloudSync),
     Settings(R.string.settings, Icons.Rounded.Settings),
+
+    /**
+     * 分组页：节点组与规则组管理。
+     *
+     * 声明在最后，但显示位置由 MainActivity 插到 Nodes 之前。
+     * 是否显示由设置开关控制；功能稳定后移除开关即可成为默认入口。
+     */
+    Policy(R.string.policy, Icons.Rounded.AccountTree),
 }
+
+/** 分组页开关的偏好键。 */
+internal const val POLICY_TAB_ENABLED_KEY = "policy_tab_enabled"
+
+/** 默认不显示分组页，需在设置中显式开启。 */
+internal const val POLICY_TAB_ENABLED_DEFAULT = false

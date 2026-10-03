@@ -1,5 +1,7 @@
 package com.fanjv.netproxy.feature.settings.presentation
 
+import android.content.Context
+
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -15,11 +17,15 @@ import androidx.compose.material.icons.rounded.AppRegistration
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.ContactPage
 import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Router
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -36,6 +42,8 @@ import com.fanjv.netproxy.core.ui.component.CardItem
 import com.fanjv.netproxy.core.ui.component.groupedCardItems
 import com.fanjv.netproxy.core.ui.component.rememberBlurBackdrop
 import com.fanjv.netproxy.navigation.LocalNavigator
+import com.fanjv.netproxy.navigation.POLICY_TAB_ENABLED_DEFAULT
+import com.fanjv.netproxy.navigation.POLICY_TAB_ENABLED_KEY
 import com.fanjv.netproxy.navigation.Route
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -164,6 +172,39 @@ internal fun SettingsScreen(
                                 },
                                 checked = settings.autoStartEnabled,
                                 onCheckedChange = { viewModel.setAutoStartEnabled(it) }
+                            )
+                        },
+                        // 分组页开关：默认关闭，功能稳定后移除该开关即可默认显示。
+                        CardItem("policyTab") {
+                            val preferences = remember(context) {
+                                context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+                            }
+                            var policyTabEnabled by remember(preferences) {
+                                mutableStateOf(
+                                    preferences.getBoolean(
+                                        POLICY_TAB_ENABLED_KEY,
+                                        POLICY_TAB_ENABLED_DEFAULT
+                                    )
+                                )
+                            }
+                            SwitchPreference(
+                                title = stringResource(R.string.policy_tab_enabled),
+                                summary = stringResource(R.string.policy_tab_enabled_summary),
+                                startAction = {
+                                    Icon(
+                                        imageVector = Icons.Rounded.AccountTree,
+                                        contentDescription = null,
+                                        modifier = Modifier.padding(end = 6.dp),
+                                        tint = colorScheme.onBackground
+                                    )
+                                },
+                                checked = policyTabEnabled,
+                                onCheckedChange = { enabled ->
+                                    policyTabEnabled = enabled
+                                    preferences.edit()
+                                        .putBoolean(POLICY_TAB_ENABLED_KEY, enabled)
+                                        .apply()
+                                }
                             )
                         },
                     ),

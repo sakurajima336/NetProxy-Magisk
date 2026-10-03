@@ -16,8 +16,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Density
@@ -44,11 +47,14 @@ import com.fanjv.netproxy.feature.dashboard.presentation.CatalogDashboardScreen
 import com.fanjv.netproxy.feature.kernel.presentation.SingBoxJsonEditScreen
 import com.fanjv.netproxy.feature.kernel.presentation.SingBoxKernelSettingsScreen
 import com.fanjv.netproxy.feature.logs.presentation.LogsScreen
+import com.fanjv.netproxy.feature.policy.presentation.PolicyScreen
 import com.fanjv.netproxy.feature.settings.presentation.ProxySettingsScreen
 import com.fanjv.netproxy.feature.settings.presentation.SettingsScreen
 import com.fanjv.netproxy.feature.theme.presentation.ThemeSettingsScreen
 import com.fanjv.netproxy.feature.theme.presentation.ThemeViewModel
 import com.fanjv.netproxy.navigation.AppDestination
+import com.fanjv.netproxy.navigation.POLICY_TAB_ENABLED_DEFAULT
+import com.fanjv.netproxy.navigation.POLICY_TAB_ENABLED_KEY
 import com.fanjv.netproxy.navigation.LocalNavigator
 import com.fanjv.netproxy.navigation.MainBottomBar
 import com.fanjv.netproxy.navigation.MainPagerState
@@ -204,7 +210,31 @@ internal fun MainScreen(
     catalogNodesViewModel: CatalogNodesViewModel
 ) {
     val themeState by themeViewModel.state.collectAsStateWithLifecycle()
-    val destinations = AppDestination.entries
+    val context = LocalContext.current
+    // 分组页是否显示由设置开关控制；功能稳定后移除开关即可默认显示。
+    var policyTabEnabled by remember {
+        mutableStateOf(
+            context.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
+                .getBoolean(POLICY_TAB_ENABLED_KEY, POLICY_TAB_ENABLED_DEFAULT)
+        )
+    }
+    // 设置页改动开关后回到主页需要同步，因此每次组合都重新读取。
+    LaunchedEffect(Unit) {
+        policyTabEnabled = context
+            .getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
+            .getBoolean(POLICY_TAB_ENABLED_KEY, POLICY_TAB_ENABLED_DEFAULT)
+    }
+    // 分组页固定插在节点页左边。
+    val destinations = remember(policyTabEnabled) {
+        buildList {
+            AppDestination.entries.forEach { destination ->
+                if (destination == AppDestination.Nodes && policyTabEnabled) {
+                    add(AppDestination.Policy)
+                }
+                add(destination)
+            }
+        }
+    }
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { destinations.size })
     val mainPagerState = rememberMainPagerState(pagerState)
     // 目的地列表变化时，确保 selectedPage 不越界
@@ -279,6 +309,11 @@ internal fun MainScreen(
                         bottomPadding = bottomPadding,
                         isActive = mainPagerState.selectedPage == pageIndex,
                         viewModel = catalogNodesViewModel
+                    )
+
+                    AppDestination.Policy -> PolicyScreen(
+                        bottomPadding = bottomPadding,
+                        isActive = mainPagerState.selectedPage == pageIndex
                     )
 
                     AppDestination.Subscriptions -> SubscriptionsScreen(

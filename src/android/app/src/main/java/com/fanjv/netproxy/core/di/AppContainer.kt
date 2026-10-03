@@ -12,6 +12,7 @@ import com.fanjv.netproxy.feature.catalog.data.NodeImportStore
 import com.fanjv.netproxy.feature.catalog.data.NodeRepository
 import com.fanjv.netproxy.feature.catalog.data.SubscriptionRepository
 import com.fanjv.netproxy.feature.logs.data.LogRepository
+import com.fanjv.netproxy.feature.policy.data.PolicyRepository
 import com.fanjv.netproxy.feature.settings.data.ConfigRepository
 import com.fanjv.netproxy.feature.theme.presentation.ThemeManager
 
@@ -26,6 +27,7 @@ internal class AppContainer(context: Context) {
     val nodeRepository = NodeRepository(catalogRepository)
     val subscriptionRepository = SubscriptionRepository(catalogRepository)
     val appPolicyRepository = AppPolicyRepository(netProxyCtlClient)
+    val policyRepository = PolicyRepository(netProxyCtlClient)
     val configRepository = ConfigRepository(netProxyCtlClient, commandFileStore)
     val logRepository = LogRepository(netProxyCtlClient, appContext)
     val moduleEnvironment = AndroidModuleEnvironment(appContext, netProxyCtlClient)

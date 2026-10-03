@@ -53,6 +53,10 @@
 
     <!-- Catalog: Nodes -->
     <string name="nodes">节点</string>
+    <!-- 分组页：节点组与规则组管理，由设置开关控制是否显示 -->
+    <string name="policy">分组</string>
+    <string name="policy_tab_enabled">显示分组页</string>
+    <string name="policy_tab_enabled_summary">管理节点组与规则组：为规则指定使用哪些订阅和节点</string>
     <string name="latency_testing">测试中…</string>
     <string name="latency_failed">测试失败</string>
     <string name="latency_timeout">超时</string>

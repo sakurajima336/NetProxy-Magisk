@@ -15,6 +15,7 @@ import com.fanjv.netproxy.feature.catalog.presentation.subscriptions.Subscriptio
 import com.fanjv.netproxy.feature.dashboard.presentation.CatalogDashboardViewModel
 import com.fanjv.netproxy.feature.kernel.presentation.SingBoxConfigViewModel
 import com.fanjv.netproxy.feature.logs.presentation.LogsViewModel
+import com.fanjv.netproxy.feature.policy.presentation.PolicyViewModel
 import com.fanjv.netproxy.feature.settings.presentation.SettingsViewModel
 import com.fanjv.netproxy.feature.theme.presentation.ThemeViewModel
 
@@ -63,6 +64,7 @@ internal class NetProxyViewModelFactory(
             )
 
             LogsViewModel::class.java -> LogsViewModel(container.logRepository)
+            PolicyViewModel::class.java -> PolicyViewModel(container.policyRepository)
             ThemeViewModel::class.java -> ThemeViewModel(container.themeManager)
             else -> error("不支持的 ViewModel: ${modelClass.name}")
         } as T
