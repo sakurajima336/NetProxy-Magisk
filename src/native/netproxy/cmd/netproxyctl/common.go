@@ -69,6 +69,8 @@ func (c *cli) help() {
   netproxyctl [--json] [--timeout <秒|时长>] catalog list|show <分组>
   netproxyctl [--json] [--timeout <秒|时长>] node list|current|show|get|export|delay|add|import|edit|remove|use
   netproxyctl [--json] [--timeout <秒|时长>] sub list|show|add|edit|update|update-all|activate|remove|history|cancel
+  netproxyctl [--json] [--timeout <秒|时长>] group list|show|set|remove
+  netproxyctl [--json] [--timeout <秒|时长>] rule list|show|set|remove|check|fields
   netproxyctl [--json] [--timeout <秒|时长>] mode [rule|global|direct|AllowAds]
   netproxyctl [--json] [--timeout <秒|时长>] network evaluate --type <wifi|not_wifi> [--ssid <名称>]
   netproxyctl [--json] [--timeout <秒|时长>] app list|mode|add|remove|enable|disable

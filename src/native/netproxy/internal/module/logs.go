@@ -133,7 +133,7 @@ func writeLogArchive(options Options, output io.Writer) (err error) {
 		"config/singbox/rules/remote", false, false,
 	)
 	appendDirectoryFiles(&files, options.CatalogRoot, "data/catalog", true, true)
-	for _, name := range []string{"providers.json", "outbounds.json", "ebpf.json"} {
+	for _, name := range []string{"providers.json", "outbounds.json", "ebpf.json", "policy.json"} {
 		files = append(files, archiveFile{
 			source: filepath.Join(options.RuntimeDir, name),
 			name:   "runtime/" + name,

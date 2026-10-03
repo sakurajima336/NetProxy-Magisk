@@ -222,6 +222,32 @@ func RuntimeTag(ctx context.Context, root, groupID string) (string, error) {
 	return targetName, nil
 }
 
+func ProviderPathByRuntimeTag(ctx context.Context, root, runtimeTag string) (string, error) {
+	release, err := acquireCatalogRootAndRecover(ctx, root)
+	if err != nil {
+		return "", err
+	}
+	defer release()
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return "", err
+	}
+	for _, entry := range entries {
+		if !isGroupDir(entry) {
+			continue
+		}
+		metadata, err := loadMetadata(filepath.Join(root, entry.Name(), "meta.json"), entry.Name())
+		if err != nil {
+			return "", fmt.Errorf("读取分组 %s 元数据: %w", entry.Name(), err)
+		}
+		if metadata.Name != runtimeTag {
+			continue
+		}
+		return filepath.Join(root, entry.Name(), "provider.json"), nil
+	}
+	return "", fmt.Errorf("未找到运行时 Provider: %s", runtimeTag)
+}
+
 func GroupIDs(ctx context.Context, root, groupType string) ([]string, error) {
 	release, err := acquireCatalogRootAndRecover(ctx, root)
 	if err != nil {

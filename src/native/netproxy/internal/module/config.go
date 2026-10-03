@@ -87,7 +87,7 @@ func ListConfigs(options Options) ([]ConfigDocument, error) {
 			Editable: true,
 		})
 	}
-	for _, name := range []string{"providers.json", "outbounds.json", "ebpf.json"} {
+	for _, name := range []string{"providers.json", "outbounds.json", "ebpf.json", "policy.json"} {
 		path := filepath.Join(options.RuntimeDir, name)
 		info, err := os.Stat(path)
 		if os.IsNotExist(err) {
@@ -470,7 +470,7 @@ func ResolveConfig(options Options, target string) (string, error) {
 
 func isRuntimeConfigName(name string) bool {
 	switch name {
-	case "providers.json", "outbounds.json", "ebpf.json":
+	case "providers.json", "outbounds.json", "ebpf.json", "policy.json":
 		return true
 	default:
 		return false

@@ -439,7 +439,7 @@ func newSingBoxCommand(options Options, prepared PrepareResult) (*exec.Cmd, *os.
 		return nil, nil, err
 	}
 	command := exec.Command(options.SingBoxPath, "run", "-c", paths.SingBoxConfig(options.SingBoxDir),
-		"-c", prepared.Providers, "-c", prepared.Outbounds, "-c", prepared.EBPF)
+		"-c", prepared.Providers, "-c", prepared.Outbounds, "-c", prepared.EBPF, "-c", prepared.Policy)
 	command.Dir = options.SingBoxDir
 	command.Stdout = logFile
 	command.Stderr = logFile
@@ -583,7 +583,7 @@ func restoreReloadState(ctx context.Context, options Options, pid int, startedAt
 }
 
 func cleanupRuntimeFiles(options Options) {
-	for _, name := range []string{"providers.json", "outbounds.json", "ebpf.json"} {
+	for _, name := range []string{"providers.json", "outbounds.json", "ebpf.json", "policy.json"} {
 		_ = os.Remove(filepath.Join(options.RuntimeDir, name))
 	}
 }

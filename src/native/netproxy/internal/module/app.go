@@ -17,6 +17,7 @@ import (
 	moduleconfig "github.com/Fanju6/NetProxy-Magisk/src/native/netproxy/internal/config"
 	"github.com/Fanju6/NetProxy-Magisk/src/native/netproxy/internal/ebpf"
 	"github.com/Fanju6/NetProxy-Magisk/src/native/netproxy/internal/paths"
+	"github.com/Fanju6/NetProxy-Magisk/src/native/netproxy/internal/policy"
 	"github.com/Fanju6/NetProxy-Magisk/src/native/netproxy/internal/service"
 	"github.com/Fanju6/NetProxy-Magisk/src/native/netproxy/internal/serviceapi"
 	"github.com/Fanju6/NetProxy-Magisk/src/native/netproxy/internal/subscription"
@@ -76,6 +77,9 @@ type PrepareResult struct {
 	Providers string `json:"providers"`
 	Outbounds string `json:"outbounds"`
 	EBPF      string `json:"ebpf"`
+	// Policy 是规则组/节点组编译出的运行时片段，通过额外的 -c 交给 sing-box。
+	// 主配置 config.json 不会被修改。
+	Policy string `json:"policy"`
 }
 
 // AppPolicy 描述分应用代理的持久设置。
@@ -118,7 +122,42 @@ func Prepare(ctx context.Context, options Options, allowEmpty bool) (PrepareResu
 	for _, ref := range missingPackages {
 		logService(options, "WARN", "ebpf.package", "skipped", "分应用代理跳过未安装应用: %s", ref.String())
 	}
-	return PrepareResult{RuntimeResult: runtime, Providers: providers, Outbounds: outbounds, EBPF: ebpfPath}, nil
+	// 规则组与节点组编译成独立片段，通过额外的 -c 交给 sing-box，
+	// 主配置 config.json 始终保持用户原样。
+	policyPath, err := compilePolicy(ctx, options)
+	if err != nil {
+		return PrepareResult{}, err
+	}
+	return PrepareResult{
+		RuntimeResult: runtime, Providers: providers, Outbounds: outbounds,
+		EBPF: ebpfPath, Policy: policyPath,
+	}, nil
+}
+
+// compilePolicy 编译规则组与节点组，返回运行时片段路径。
+func compilePolicy(ctx context.Context, options Options) (string, error) {
+	config, err := policy.Load(policy.ConfigPath(options.SingBoxDir))
+	if err != nil {
+		return "", err
+	}
+	result, err := policy.Compile(ctx, config, policy.CompileOptions{
+		SingBoxDir:  options.SingBoxDir,
+		RuntimeDir:  options.RuntimeDir,
+		CatalogRoot: options.CatalogRoot,
+		ProviderTag: func(ctx context.Context, groupID string) (string, error) {
+			return catalog.RuntimeTag(ctx, options.CatalogRoot, groupID)
+		},
+		ProviderPath: func(ctx context.Context, providerTag string) (string, error) {
+			return catalog.ProviderPathByRuntimeTag(ctx, options.CatalogRoot, providerTag)
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("编译规则组/节点组失败: %w", err)
+	}
+	for _, warning := range result.Warnings {
+		logService(options, "WARN", "policy.compile", "skipped", "%s", warning)
+	}
+	return result.FragmentPath, nil
 }
 
 func syncRuntimeSelection(ctx context.Context, options Options, runtime catalog.RuntimeResult) error {
@@ -160,7 +199,7 @@ func Check(ctx context.Context, options Options, allowEmpty bool) (PrepareResult
 	}
 	configPath := paths.SingBoxConfig(options.SingBoxDir)
 	command := exec.CommandContext(ctx, options.SingBoxPath, "check", "-c", configPath,
-		"-c", prepared.Providers, "-c", prepared.Outbounds, "-c", prepared.EBPF)
+		"-c", prepared.Providers, "-c", prepared.Outbounds, "-c", prepared.EBPF, "-c", prepared.Policy)
 	command.Dir = options.SingBoxDir
 	command.Stdout = os.Stderr
 	command.Stderr = os.Stderr

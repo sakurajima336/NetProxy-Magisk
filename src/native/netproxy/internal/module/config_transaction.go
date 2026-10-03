@@ -107,7 +107,7 @@ func beginConfigApply(options Options, destination string) (*configApplyTransact
 		}
 		transaction.journal.Static = append(transaction.journal.Static, snapshot)
 	}
-	for index, name := range []string{"providers.json", "outbounds.json", "ebpf.json"} {
+	for index, name := range []string{"providers.json", "outbounds.json", "ebpf.json", "policy.json"} {
 		path := filepath.Join(options.RuntimeDir, name)
 		snapshot, err := createConfigSnapshot(directory, fmt.Sprintf("runtime-%d", index), path)
 		if err != nil {
@@ -260,7 +260,7 @@ func validateConfigJournal(options Options, journal configApplyJournal) error {
 		allowedStatic[path] = struct{}{}
 	}
 	allowedRuntime := make(map[string]struct{})
-	for _, name := range []string{"providers.json", "outbounds.json", "ebpf.json"} {
+	for _, name := range []string{"providers.json", "outbounds.json", "ebpf.json", "policy.json"} {
 		allowedRuntime[filepath.Clean(filepath.Join(options.RuntimeDir, name))] = struct{}{}
 	}
 	for _, snapshot := range journal.Static {
@@ -340,6 +340,8 @@ func prepareFromConfigJournal(options Options, journal configApplyJournal) Prepa
 			prepared.Outbounds = snapshot.Path
 		case "ebpf.json":
 			prepared.EBPF = snapshot.Path
+		case "policy.json":
+			prepared.Policy = snapshot.Path
 		}
 	}
 	return prepared
