@@ -1,7 +1,7 @@
 id=netproxy
 name=NetProxy
-version=v8.2.0-fork.1
-versionCode=974
+version=v8.2.0-fork.2
+versionCode=975
 author=Fanju
 description=基于 sing-box 内核的透明代理工具（含规则组/节点组）
 updateJson=https://github.com/Fanju6/NetProxy-Magisk/releases/latest/download/update.json

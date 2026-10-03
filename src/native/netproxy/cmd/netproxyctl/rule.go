@@ -33,6 +33,8 @@ func (c *cli) rule(ctx context.Context, args []string) error {
 	group := flags.String("group", "", "规则组使用的节点组")
 	file := flags.String("file", "", "从该文件导入规则内容，留空表示仅登记")
 	enabled := flags.String("enabled", "", "是否启用：true/false")
+	kind := flags.String("kind", "suffix", "匹配方式：suffix|domain|keyword|ip")
+	value := flags.String("value", "", "域名、关键字或 IP/CIDR，多个用逗号分隔")
 	positionals, err := parseFlagsAnywhere(flags, args[1:])
 	if err != nil {
 		return err
@@ -63,6 +65,21 @@ func (c *cli) rule(ctx context.Context, args []string) error {
 			return usageError("用法: netproxyctl rule show <名称>")
 		}
 		return c.ruleShow(options, positionals[0])
+	case "entries":
+		if len(positionals) == 0 {
+			return usageError("用法: netproxyctl rule entries <名称>")
+		}
+		return c.ruleEntries(options, positionals[0])
+	case "add":
+		if len(positionals) == 0 {
+			return usageError("用法: netproxyctl rule add <名称> --kind suffix --value example.com")
+		}
+		return c.ruleAddEntry(ctx, options, positionals[0], *kind, *value)
+	case "rm", "remove-entry":
+		if len(positionals) == 0 {
+			return usageError("用法: netproxyctl rule rm <名称> --value example.com[,b.com] [--kind suffix]")
+		}
+		return c.ruleRemoveEntry(ctx, options, positionals[0], *kind, *value)
 	case "check":
 		if len(positionals) == 0 {
 			return usageError("用法: netproxyctl rule check <名称>")
@@ -301,6 +318,138 @@ func (c *cli) ruleRemove(ctx context.Context, options moduleapp.Options, name st
 		Data: map[string]any{"name": name, "list": listPath},
 	})
 	return nil
+}
+
+// ruleEntries 返回规则组的条目列表（面向客户端的域名/IP 视图）。
+func (c *cli) ruleEntries(options moduleapp.Options, name string) error {
+	config, err := policy.Load(policy.ConfigPath(options.SingBoxDir))
+	if err != nil {
+		return err
+	}
+	rule, found := config.FindRule(name)
+	if !found {
+		return &resultError{Code: "rule.not_found", Message: "规则组不存在: " + name}
+	}
+	path := policy.ListPath(options.SingBoxDir, name)
+	entries, err := policy.ParseEntriesFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			// 还没写过内容时视为空列表，让客户端可以直接开始添加。
+			entries = policy.EntryList{Entries: []policy.Entry{}}
+		} else {
+			return &resultError{Code: "rule.invalid", Message: err.Error()}
+		}
+	}
+	writeJSON(os.Stdout, result{
+		Schema: 1, OK: true, Code: "rule.entries", Message: "规则组条目",
+		Data: map[string]any{
+			"name":    name,
+			"group":   rule.Group,
+			"path":    path,
+			"entries": entries.Entries,
+			"other":   entries.Other,
+			"count":   len(entries.Entries),
+		},
+	})
+	return nil
+}
+
+// ruleAddEntry 向规则组追加域名/IP 条目。
+func (c *cli) ruleAddEntry(ctx context.Context, options moduleapp.Options, name, kindValue, valueValue string) error {
+	if strings.TrimSpace(valueValue) == "" {
+		return usageError("请用 --value 指定要添加的域名或 IP")
+	}
+	config, err := policy.Load(policy.ConfigPath(options.SingBoxDir))
+	if err != nil {
+		return err
+	}
+	if _, found := config.FindRule(name); !found {
+		return &resultError{
+			Code:    "rule.not_found",
+			Message: fmt.Sprintf("规则组不存在: %s（可先用 rule set 创建）", name),
+		}
+	}
+	kind := policy.EntryKind(strings.ToLower(strings.TrimSpace(kindValue)))
+	additions, err := buildEntries(kind, valueValue)
+	if err != nil {
+		return &resultError{Code: "rule.invalid", Message: err.Error()}
+	}
+	path := policy.ListPath(options.SingBoxDir, name)
+	added, updated, err := policy.AddEntries(path, additions)
+	if err != nil {
+		return err
+	}
+	if err := c.recompilePolicy(ctx, options); err != nil {
+		return err
+	}
+	message := fmt.Sprintf("已添加 %d 条", added)
+	if added == 0 {
+		message = "这些条目已存在"
+	}
+	writeJSON(os.Stdout, result{
+		Schema: 1, OK: true, Code: "rule.entry_added", Message: message,
+		Data: map[string]any{
+			"name": name, "added": added,
+			"entries": updated.Entries, "count": len(updated.Entries),
+		},
+	})
+	return nil
+}
+
+// ruleRemoveEntry 从规则组删除条目。
+func (c *cli) ruleRemoveEntry(ctx context.Context, options moduleapp.Options, name, kindValue, valueValue string) error {
+	if strings.TrimSpace(valueValue) == "" {
+		return usageError("请用 --value 指定要删除的域名或 IP")
+	}
+	config, err := policy.Load(policy.ConfigPath(options.SingBoxDir))
+	if err != nil {
+		return err
+	}
+	if _, found := config.FindRule(name); !found {
+		return &resultError{Code: "rule.not_found", Message: "规则组不存在: " + name}
+	}
+	kind := policy.EntryKind(strings.ToLower(strings.TrimSpace(kindValue)))
+	targets, err := buildEntries(kind, valueValue)
+	if err != nil {
+		return &resultError{Code: "rule.invalid", Message: err.Error()}
+	}
+	path := policy.ListPath(options.SingBoxDir, name)
+	removed, updated, err := policy.RemoveEntries(path, targets)
+	if err != nil {
+		return err
+	}
+	if err := c.recompilePolicy(ctx, options); err != nil {
+		return err
+	}
+	writeJSON(os.Stdout, result{
+		Schema: 1, OK: true, Code: "rule.entry_removed",
+		Message: fmt.Sprintf("已删除 %d 条", removed),
+		Data: map[string]any{
+			"name": name, "removed": removed,
+			"entries": updated.Entries, "count": len(updated.Entries),
+		},
+	})
+	return nil
+}
+
+// buildEntries 把逗号分隔的输入解析成校验过的条目。
+func buildEntries(kind policy.EntryKind, raw string) ([]policy.Entry, error) {
+	var entries []policy.Entry
+	for _, part := range strings.Split(raw, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		normalized, err := policy.ValidateEntry(kind, part)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, policy.Entry{Kind: kind, Value: normalized})
+	}
+	if len(entries) == 0 {
+		return nil, errors.New("没有可用的条目")
+	}
+	return entries, nil
 }
 
 // recompilePolicy 重新编译运行时片段，供规则组与节点组命令共用。

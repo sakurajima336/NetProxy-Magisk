@@ -100,6 +100,56 @@ internal data class PolicyRuleFields(
     val directory: String = ""
 )
 
+/** 一条规则条目：域名或 IP。 */
+@Serializable
+internal data class PolicyEntry(
+    /** 匹配方式：suffix（含子域名）/ domain（精确）/ keyword（关键字）/ ip。 */
+    val kind: String = "suffix",
+    val value: String = ""
+)
+
+/** 规则组条目列表响应。 */
+@Serializable
+internal data class PolicyEntryList(
+    val name: String = "",
+    val group: String = "",
+    val entries: List<PolicyEntry> = emptyList(),
+    /** 由其他方式维护的条目数，客户端不展示也不改动。 */
+    val other: Int = 0,
+    val count: Int = 0
+)
+
+/** 条目增删结果。 */
+@Serializable
+internal data class PolicyEntryMutation(
+    val name: String = "",
+    val added: Int = 0,
+    val removed: Int = 0,
+    val count: Int = 0,
+    val entries: List<PolicyEntry> = emptyList()
+)
+
+/** 匹配方式的中文说明，与模块侧 policy.EntryKindLabel 保持一致。 */
+internal fun policyEntryKindLabel(kind: String): String = when (kind) {
+    "suffix" -> "包含这个域名就走（含子域名）"
+    "domain" -> "只匹配这个域名"
+    "keyword" -> "域名里含这个关键字就走"
+    "ip" -> "IP 或网段"
+    else -> kind
+}
+
+/** 匹配方式的短标签，用于列表项。 */
+internal fun policyEntryKindShort(kind: String): String = when (kind) {
+    "suffix" -> "含子域名"
+    "domain" -> "精确"
+    "keyword" -> "关键字"
+    "ip" -> "IP"
+    else -> kind
+}
+
+/** 可选的匹配方式，顺序与模块侧一致。 */
+internal val POLICY_ENTRY_KINDS = listOf("suffix", "domain", "keyword", "ip")
+
 /** 节点组名称校验，与模块侧 policy 包保持一致。 */
 internal val POLICY_GROUP_TAG_PATTERN = Regex("""^[\p{L}\p{N}][\p{L}\p{N}._ -]*$""")
 

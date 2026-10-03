@@ -65,7 +65,7 @@ src/android/app/src/main/java/com/fanjv/netproxy/feature/policy/
 
 ```text
 netproxyctl group list|show|set|remove
-netproxyctl rule list|show|set|remove|check|fields
+netproxyctl rule list|show|entries|add|rm|set|remove|check|fields
 ```
 
 示例：
@@ -78,23 +78,53 @@ su -c '/data/adb/modules/netproxy/netproxyctl group set AI节点组 \
 # 规则组：指向节点组
 su -c '/data/adb/modules/netproxy/netproxyctl rule set OpenAI --group AI节点组'
 
-# 查看支持哪些 .list 字段
+# 直接加域名（不用手写文件）
+su -c '/data/adb/modules/netproxy/netproxyctl rule add OpenAI --kind suffix --value openai.com'
+su -c '/data/adb/modules/netproxy/netproxyctl rule add OpenAI --kind domain --value api.openai.com'
+su -c '/data/adb/modules/netproxy/netproxyctl rule add OpenAI --kind ip --value 23.102.140.0/24'
+
+# 看已保存的域名/IP
+su -c '/data/adb/modules/netproxy/netproxyctl rule entries OpenAI'
+
+# 删除（支持多选，逗号分隔）
+su -c '/data/adb/modules/netproxy/netproxyctl rule rm OpenAI --kind suffix --value a.com,b.com'
+
+# 查看支持哪些 .list 字段（高级用法）
 su -c '/data/adb/modules/netproxy/netproxyctl rule fields'
 ```
 
-`.list` 语法（**sing-box 字段名，一行一条**）：
+### 匹配方式（`--kind`）
+
+面向"加个域名就能用"，只暴露四种语义，不把 sing-box 的全部字段摊给用户：
+
+| `--kind` | 含义 | 对应 sing-box 字段 |
+|---|---|---|
+| `suffix`（默认） | 包含这个域名就走，含子域名 | `domain_suffix` |
+| `domain` | 只匹配这个域名 | `domain` |
+| `keyword` | 域名里含这个关键字就走 | `domain_keyword` |
+| `ip` | IP 或网段 | `ip_cidr` |
+
+输入会被自动规范化：`https://Example.com/path` → `example.com`；
+IP 用 `net/netip` 真正解析（`999.1.1.1` 会被拒绝）。
+
+### `.list` 文件格式
+
+客户端增删的就是这个文件，一行一条：
 
 ```text
-# 注释
+# 一行一条，客户端可增删
 domain_suffix:openai.com
-domain_keyword:openai
-ip_cidr:23.102.140.0/22
-process_name:com.openai.chatgpt
+domain:api.openai.com
+ip_cidr:23.102.140.0/24
 ```
 
 > **不是** Clash 语法。`DOMAIN-SUFFIX,xxx.com` 会被拒绝并报「不支持的字段」。
 > sing-box 没有任何纯文本规则格式，`.list` 是本 fork 自定义的语法，
 > 字段名与 sing-box rule-set 一致，由 `internal/policy/list.go` 解析。
+
+**用户手写的其他字段会被保留**：客户端只读写上面四种类型，
+`port`、`process_name` 等高级字段在写回时原样保留在文件末尾，
+并在界面提示「另有 N 条高级规则由文件维护」。实现在 `entry.go` 的 `collectOtherLines`。
 
 ---
 
@@ -181,6 +211,12 @@ Provider tag 由 `catalog.RuntimeTag` 解析（可能带去重后缀 `赔钱 [a1
   不直接读写 `/data/adb`。
 - 编辑态以覆盖层（early return）呈现，避免打断列表滚动位置。
 - 节点组编辑页需要节点目录，通过 `CatalogNodesViewModel` 复用，不新建节点仓库。
+- **规则组详情页就是域名/IP 编辑器**：点规则组进入，直接输入域名保存，
+  下方是已保存列表，支持单条删除与多选批量删除。
+  它读写的是 `rule entries` / `rule add` / `rule rm`，
+  **不要再退回「只读展示 .list 原文」的形态**——用户明确要求能在客户端直接编辑。
+- 界面只暴露四种匹配方式（suffix/domain/keyword/ip），
+  与模块侧 `policy.EntryKinds()` 一一对应；`POLICY_ENTRY_KINDS` 改动时必须同步两侧。
 
 ---
 

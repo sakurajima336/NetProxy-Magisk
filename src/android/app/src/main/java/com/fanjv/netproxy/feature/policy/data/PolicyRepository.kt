@@ -1,6 +1,8 @@
 package com.fanjv.netproxy.feature.policy.data
 
 import com.fanjv.netproxy.core.command.NetProxyCtlClient
+import com.fanjv.netproxy.feature.policy.model.PolicyEntryList
+import com.fanjv.netproxy.feature.policy.model.PolicyEntryMutation
 import com.fanjv.netproxy.feature.policy.model.PolicyGroup
 import com.fanjv.netproxy.feature.policy.model.PolicyGroupList
 import com.fanjv.netproxy.feature.policy.model.PolicyGroupWriteResult
@@ -82,4 +84,20 @@ internal class PolicyRepository(
     suspend fun removeRule(name: String) {
         client.execute("rule", "remove", name)
     }
+
+    /** 读取规则组的域名/IP 条目。 */
+    suspend fun listEntries(name: String): PolicyEntryList =
+        json.decodeFromJsonElement(client.execute("rule", "entries", name).data)
+
+    /** 添加域名/IP 条目。多个值用逗号分隔，模块侧会校验并去重。 */
+    suspend fun addEntry(name: String, kind: String, value: String): PolicyEntryMutation =
+        json.decodeFromJsonElement(
+            client.execute("rule", "add", name, "--kind", kind, "--value", value).data
+        )
+
+    /** 删除域名/IP 条目。支持一次传多个值。 */
+    suspend fun removeEntry(name: String, kind: String, value: String): PolicyEntryMutation =
+        json.decodeFromJsonElement(
+            client.execute("rule", "rm", name, "--kind", kind, "--value", value).data
+        )
 }

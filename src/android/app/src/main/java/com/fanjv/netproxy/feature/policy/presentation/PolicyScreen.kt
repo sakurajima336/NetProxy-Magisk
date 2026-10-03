@@ -112,7 +112,16 @@ internal fun PolicyScreen(
         return
     }
     state.ruleDetail?.let { detail ->
-        PolicyRuleDetailScreen(detail = detail, onDismiss = viewModel::dismissRuleDetail)
+        PolicyRuleDetailScreen(
+            detail = detail,
+            mutating = state.mutating,
+            onUpdate = viewModel::updateRuleDetail,
+            onAdd = viewModel::addEntry,
+            onRemove = viewModel::removeEntry,
+            onToggleSelect = viewModel::toggleEntrySelection,
+            onRemoveSelected = viewModel::removeSelectedEntries,
+            onDismiss = viewModel::dismissRuleDetail
+        )
         return
     }
 
