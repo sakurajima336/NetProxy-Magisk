@@ -6,6 +6,10 @@
 
 本文件只收录「违反后编译和测试都不报错、但运行时会静默出错」的约束。能被 `go vet`、`tsc`、Gradle lint 或现有测试拦住的规则不写在这里。
 
+> **本仓库是 fork**。相对上游新增了「规则组 / 节点组」功能，其目录布局、命令、以及四条运行时会静默出错
+> 的实现约束（依赖启动顺序、主配置只读、flag 解析、节点引用双格式）见 [FORK.md](FORK.md)。
+> 涉及 `internal/policy`、`group`/`rule` 命令或 Android 分组页的改动，先读该文件。
+
 ## 项目边界
 
 - `src/module/`：Magisk、KernelSU 与 APatch 模块，包含生命周期脚本、`netproxyctl`、sing-box 配置、资源和打包内容。
@@ -38,7 +42,7 @@
 ## 命令入口与脚本布局
 
 - `src/module/netproxyctl` 只负责定位 `bin/netproxyctl`；公共实现位于 `src/native/netproxy/cmd/netproxyctl`。Shell 不再保留公共命令 dispatcher。
-- 命令组权威清单：`service catalog node sub mode network app ebpf config logs`。新增命令组必须同时更新 Go CLI、Android `NetProxyCtlClient`、WebUI `src/exec.ts` 和契约测试。
+- 命令组权威清单：`service catalog node sub mode network app ebpf config logs`，本 fork 另加 `group`、`rule`。新增命令组必须同时更新 Go CLI、Android `NetProxyCtlClient`、WebUI `src/exec.ts` 和契约测试。
 - `scripts/` 不承载运行时业务；配置、Catalog、状态和 Service API 业务统一由 Go 实现。
 - 根目录 `service.sh` 负责模块开机桥接；`emulated-soft-reboot.sh` 仅供 KernelSU 在软重启前同步停止 Worker 与 sing-box，避免旧 eBPF cgroup 挂载阻塞 netd。运行时配置、节点切换、订阅事务和调度由 Go 负责。
 - Go Worker 负责 Android 网络变化采集、Wi-Fi 状态读取和策略评估。
@@ -168,6 +172,9 @@ Android Root、开机启动、模块命令、快捷设置磁贴、eBPF、热点�
 - CI 管理器 APK 每次使用不同签名，不能覆盖已安装的旧 CI 版；安装新版前必须卸载旧版，卸载会清除管理器本地数据。CI 构建在仪表盘服务状态卡片上方常驻显示警告；正式 Google Play 构建不带 CI 标记，因此不显示。
 - 订阅自定义请求头走 `--headers-file` 而非命令行参数——命令行对全系统可见（`/proc/<pid>/cmdline`），会泄露鉴权 token。
 - 订阅请求的默认 User-Agent 是 `sing-box`——多数机场按 UA 白名单返回 `Subscription-Userinfo`，改成自定义 UA 会拿到 200 但没有流量信息。
+- 节点组的"单独节点"写成独立 Provider（`Picked/<节点组>`）而非直接放进 selector 的 `outbounds`——sing-box 先启动 outbound 再启动 provider，直接引用会 `sing-box check` 通过但 `run` 时报 `dependency not found`。
+- 规则组与节点组的编译产物走独立文件 `runtime/policy.json` 并额外传 `-c`，不写进主配置 `config.json`——写回主配置会让用户的手写配置被覆盖，且升级模块时丢失。
+- netproxyctl 的 flag 解析用 `parseFlagsAnywhere` 而非 `flags.Parse`——Go 标准 flag 包遇到第一个位置参数即停止解析，`group set 名称 --providers x` 里的 `--providers` 会被静默忽略。
 - 新增此类条款时写故障现象，不写设计理由：现象能阻止下一次回退，理由不能。
 
 ## 版本与发布
